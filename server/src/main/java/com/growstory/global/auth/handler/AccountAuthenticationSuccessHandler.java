@@ -38,24 +38,24 @@ public class AccountAuthenticationSuccessHandler implements AuthenticationSucces
         Account account = accountRepository.findById(((Account) authentication.getPrincipal()).getAccountId()).orElseThrow(() ->
                 new BusinessLogicException(ExceptionCode.ACCOUNT_NOT_FOUND));
 
-        if (account.getStatus().getStepDescription().equals("BANNED_USER")) {
-            chkSuspendedDays(account);
-        }
+//        if (account.getStatus().getStepDescription().equals("BANNED_USER")) {
+//            chkSuspendedDays(account);
+//        }
         accountService.attendanceCheck(account);
     }
 
-    private void chkSuspendedDays(Account account) {
-        BannedAccount findBannedAccount = bannedAccountRepository.findAll().stream()
-                .filter(bannedAccount -> Objects.equals(bannedAccount.getAccountId(), account.getAccountId()))
-                .collect(Collectors.toList())
-                .get(0);
-
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
-
-        // 정지가 끝났다면
-        if (now.isAfter(findBannedAccount.getSuspendedDate())) {
-            account.updateStatus(Status.USER);
-            bannedAccountRepository.delete(findBannedAccount);
-        }
-    }
+//    private void chkSuspendedDays(Account account) {
+//        BannedAccount findBannedAccount = bannedAccountRepository.findAll().stream()
+//                .filter(bannedAccount -> Objects.equals(bannedAccount.getAccountId(), account.getAccountId()))
+//                .collect(Collectors.toList())
+//                .get(0);
+//
+//        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+//
+//        // 정지가 끝났다면
+//        if (now.isAfter(findBannedAccount.getSuspendedDate())) {
+//            account.updateStatus(Status.USER);
+//            bannedAccountRepository.delete(findBannedAccount);
+//        }
+//    }
 }
