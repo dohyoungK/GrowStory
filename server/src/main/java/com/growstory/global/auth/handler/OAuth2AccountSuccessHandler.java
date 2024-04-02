@@ -73,27 +73,27 @@ public class OAuth2AccountSuccessHandler extends SimpleUrlAuthenticationSuccessH
             pointRepository.save(point);
         } else {
             Account findAccount = optionalAccount.get();
-            chkSuspendedDays(findAccount);
+//            chkSuspendedDays(findAccount);
             accountService.attendanceCheck(findAccount);
         }
 
         redirect(request, response, optionalAccount.orElse(savedAccount), authorities);
     }
 
-    private void chkSuspendedDays(Account account) {
-        BannedAccount findBannedAccount = bannedAccountRepository.findAll().stream()
-                .filter(bannedAccount -> Objects.equals(bannedAccount.getAccountId(), account.getAccountId()))
-                .collect(Collectors.toList())
-                .get(0);
-
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
-
-        // 정지가 끝났다면
-        if (now.isAfter(findBannedAccount.getSuspendedDate())) {
-            account.updateStatus(Status.SOCIAL_USER);
-            bannedAccountRepository.delete(findBannedAccount);
-        }
-    }
+//    private void chkSuspendedDays(Account account) {
+//        BannedAccount findBannedAccount = bannedAccountRepository.findAll().stream()
+//                .filter(bannedAccount -> Objects.equals(bannedAccount.getAccountId(), account.getAccountId()))
+//                .collect(Collectors.toList())
+//                .get(0);
+//
+//        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+//
+//        // 정지가 끝났다면
+//        if (now.isAfter(findBannedAccount.getSuspendedDate())) {
+//            account.updateStatus(Status.SOCIAL_USER);
+//            bannedAccountRepository.delete(findBannedAccount);
+//        }
+//    }
 
     private void redirect(HttpServletRequest request, HttpServletResponse response,
                           Account account, List<String> authorities) throws IOException {
