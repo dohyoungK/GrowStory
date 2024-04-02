@@ -1,5 +1,6 @@
 package com.growstory.domain.leaf.dto;
 
+import com.growstory.global.badwordsfilter.dto.TextContainer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,11 +12,11 @@ import java.time.LocalDateTime;
 public class LeafDto {
     @Getter
     @Schema(name = "LeafPostDto")
-    public static class Post {
-        @NotBlank
+    public static class Post implements TextContainer {
+        @NotBlank(message = "식물 카드 이름은 필수입니다.")
         private String leafName;
 
-        @NotBlank
+        @NotBlank(message = "식물 카드 내용은 필수입니다.")
         private String content;
 
         @Builder
@@ -23,18 +24,24 @@ public class LeafDto {
             this.leafName = leafName;
             this.content = content;
         }
+
+        @Override
+        public String combineText() {
+            StringBuilder sb = new StringBuilder();
+            return sb.append(this.leafName).append(" ").append(this.content).toString();
+        }
     }
 
     @Getter
     @Schema(name = "LeafPatchDto")
-    public static class Patch {
-        @Positive
+    public static class Patch implements TextContainer {
+        @Positive(message = "식물 카드 아이디는 양수입니다.")
         private Long leafId;
 
-        @NotBlank
+        @NotBlank(message = "식물 카드 이름은 필수입니다.")
         private String leafName;
 
-        @NotBlank
+        @NotBlank(message = "식물 카드 내용은 필수입니다.")
         private String content;
 
         private Boolean isImageUpdated;
@@ -45,6 +52,12 @@ public class LeafDto {
             this.leafName = leafName;
             this.content = content;
             this.isImageUpdated = isImageUpdated;
+        }
+
+        @Override
+        public String combineText() {
+            StringBuilder sb = new StringBuilder();
+            return sb.append(this.leafName).append(" ").append(this.content).toString();
         }
     }
 

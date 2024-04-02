@@ -12,9 +12,9 @@ import com.growstory.domain.guest.service.GuestService;
 import com.growstory.domain.images.entity.BoardImage;
 import com.growstory.domain.leaf.entity.Leaf;
 import com.growstory.domain.plant_object.dto.PlantObjDto;
-import com.growstory.domain.plant_object.entity.PlantObj;
 import com.growstory.domain.point.entity.Point;
 import com.growstory.domain.point.service.PointService;
+import com.growstory.global.auth.jwt.JwtTokenizer;
 import com.growstory.global.auth.utils.AuthUserUtils;
 import com.growstory.global.auth.utils.CustomAuthorityUtils;
 import com.growstory.global.aws.service.S3Uploader;
@@ -23,9 +23,11 @@ import com.growstory.global.exception.BusinessLogicException;
 import com.growstory.global.exception.ExceptionCode;
 import com.growstory.global.sse.service.SseService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
@@ -38,9 +40,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Transactional
-@Service
 @RequiredArgsConstructor
+@Service
 public class AccountService {
     private static final String ACCOUNT_IMAGE_PROCESS_TYPE = "profiles";
 
@@ -56,6 +59,8 @@ public class AccountService {
 
     // Guest
     private final GuestService guestService;
+    private final JwtTokenizer jwtTokenizer;
+
 
     public AccountDto.Response createAccount(AccountDto.Post requestDto) {
         if (verifyExistsEmail(requestDto.getEmail())) {
@@ -89,11 +94,12 @@ public class AccountService {
                 .build();
     }
 
-    public AccountDto.Response createAccount() {
+    public List<String> createAccount() {
         Status status = Status.GUEST_USER;
-        List<String> roles = authorityUtils.createRoles(" ");       // TODO: security 권한(디비에 저장되는지 실험해보기
+        List<String> roles = authorityUtils.createRoles(" ");
         Point point = pointService.createPoint("guest");
         String encryptedPassword = passwordEncoder.encode("gs123!@#");
+
 
         // Save Account
         Account savedAccount = accountRepository.save(Account.builder()
@@ -119,16 +125,16 @@ public class AccountService {
         Leaf leafB = guestService.createGuestLeaf(savedAccount, "가시나","예쁜 선인장이에요!! ", "https://growstory.s3.ap-northeast-2.amazonaws.com/image/guest/leaves/cactus-5434469_1280.jpg");
 
         // 일지 각각의 image S3에 업로드 후 imageUrl 반환
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 1일차", "물 주기", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 2일차", "칭찬해 주기", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 3일차", "햇빛 쫴기", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 4일차", "병원 가는 날", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 5일차", "물 주기", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 6일차", "영양 거름 주기", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 7일차", "분갈이", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 8일차", "물 주기", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 9일차", "칭찬해 주기", null);
-        guestService.createGuestJournal(leafA, "니드몬 성장일기 10일차", "물 주기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 1일차", "물 주기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 2일차", "칭찬해 주기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 3일차", "햇빛 쫴기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 4일차", "반려 식물 병원 가는 날", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 5일차", "물 주기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 6일차", "영양 거름 주기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 7일차", "분갈이", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 8일차", "물 주기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 9일차", "칭찬해 주기", null);
+        guestService.createGuestJournal(leafA, "니드몬 성장 일기 10일차", "물 주기", null);
 
         // Buy Garden Object
         PlantObjDto.TradeResponse plantObjA = guestService.buyProduct(savedAccount, 1L);    // 벽돌 유적
@@ -147,16 +153,46 @@ public class AccountService {
 
         // Connect Garden Object and Plants Card
         // 식물 카드 A와 벽돌 유적 오브젝트 연결
-        guestService.updateLeafConnection(1L, leafA.getLeafId());
+        // Todo: plantobj not found .
+        guestService.updateLeafConnection(plantObjA.getPlantObj().getPlantObjId(), leafA.getLeafId());
 
+        List<String> tokenList = new ArrayList<>();
+        // access token, Refresh Token 발급
+        String accessToken = delegateAccessToken(savedAccount);
+        String refreshToken = delegateRefreshToken(savedAccount);
+        tokenList.add(accessToken);
+        tokenList.add(refreshToken);
+        tokenList.add(String.valueOf(savedAccount.getAccountId()));
 
-        return AccountDto.Response.builder()
-                .accountId(savedAccount.getAccountId())
-                .email(savedAccount.getEmail())
-                .displayName("Guest")
-                .status(status.getStepDescription())
-                .build();
+        return tokenList;
     }
+
+    private String delegateAccessToken(Account account) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("accountId", account.getAccountId().toString());
+        claims.put("username", account.getEmail());
+        claims.put("profileImageUrl", account.getProfileImageUrl());
+        claims.put("roles", account.getRoles());
+        claims.put("displayName", account.getDisplayName());
+
+        String subject = account.getEmail();
+        Date expiration = jwtTokenizer.getTokenExpiration(jwtTokenizer.getAccessTokenExpirationMinutes());
+        String base64EncodedSecretKey = jwtTokenizer.encodeBase64SecretKey(jwtTokenizer.getSecretKey());
+        String acceesToken = jwtTokenizer.generateAccessToken(claims, subject, expiration, base64EncodedSecretKey);
+
+        return "Bearer " + acceesToken;
+    }
+
+    private String delegateRefreshToken(Account account) {
+        String subject = account.getEmail();
+        Date expiration = jwtTokenizer.getTokenExpiration(jwtTokenizer.getRefreshTokenExpirationMinutes());
+        String base64EncodedSecretKey = jwtTokenizer.encodeBase64SecretKey(jwtTokenizer.getSecretKey());
+
+        String refreshToken = jwtTokenizer.generateRefreshToken(subject, expiration, base64EncodedSecretKey);
+
+        return refreshToken;
+    }
+
 
     public void updateProfileImage(MultipartFile profileImage) {
         Account findAccount = authUserUtils.getAuthUser();
@@ -172,9 +208,7 @@ public class AccountService {
     public void updateDisplayName(AccountDto.DisplayNamePatch requestDto) {
         Account findAccount = authUserUtils.getAuthUser();
 
-        accountRepository.save(findAccount.toBuilder()
-                .displayName(requestDto.getDisplayName())
-                .build());
+        findAccount.updateDisplayName(requestDto.getDisplayName());
     }
 
     public void updatePassword(AccountDto.PasswordPatch requestDto) {
@@ -242,7 +276,7 @@ public class AccountService {
 
         int startIdx = page * size;
         int endIdx = Math.min(commentWrittenBoardList.size(), (page + 1) * size);
-        return new PageImpl<>(commentWrittenBoardList.subList(startIdx, endIdx), PageRequest.of(page, size), commentWrittenBoardList.size());
+        return new PageImpl<>(commentWrittenBoardList.subList(startIdx, endIdx), PageRequest.of(page, size, Sort.by("createdAt").descending()), commentWrittenBoardList.size());
     }
 
     public void deleteAccount() {
@@ -299,7 +333,7 @@ public class AccountService {
     }
 
     //TODO: 리팩토링 -> AuthUserUtil
-    public void isAuthIdMatching(Long accountId) {
+    public void checkAuthIdMatching(Long accountId) {
         Authentication authentication = null;
         Map<String, Object> claims = null;
         try {
@@ -315,7 +349,10 @@ public class AccountService {
         }
 
         // 사용자가 일치하지 않으면 405 예외 던지기
-        if (!(Long.valueOf((String) claims.get("accountId"))).equals(accountId)) {
+        log.info("## login-id = {}", String.valueOf(claims.get("accountId")));
+        log.info("## leafAuthorId = {}", String.valueOf(accountId));
+        log.info("##" + !String.valueOf(claims.get("accountId")).equals(String.valueOf(accountId)));
+        if (!String.valueOf(claims.get("accountId")).equals(String.valueOf(accountId))) {
             throw new BusinessLogicException(ExceptionCode.ACCOUNT_NOT_ALLOW);
         }
     }
@@ -325,6 +362,7 @@ public class AccountService {
                 .accountId(findAccount.getAccountId())
                 .email(findAccount.getEmail())
                 .displayName(findAccount.getDisplayName())
+                .status(findAccount.getStatus().getStepDescription())
                 .profileImageUrl(findAccount.getProfileImageUrl())
                 .grade(findAccount.getAccountGrade().getStepDescription())
                 .point(findAccount.getPoint())

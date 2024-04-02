@@ -1,8 +1,8 @@
-package com.growstory.global.badwords.aspect;
+package com.growstory.global.badwordsfilter.aspect;
 
-import com.growstory.global.badwords.dto.ProfanityDto;
-import com.growstory.global.badwords.dto.TextContainer;
-import com.growstory.global.badwords.service.BlackListService;
+import com.growstory.global.badwordsfilter.dto.ProfanityResponse;
+import com.growstory.global.badwordsfilter.dto.TextContainer;
+import com.growstory.global.badwordsfilter.service.BadWordsService;
 import com.growstory.global.exception.BusinessLogicException;
 import com.growstory.global.exception.ExceptionCode;
 import lombok.RequiredArgsConstructor;
@@ -21,14 +21,18 @@ import java.util.Set;
 @Aspect
 public class BadWordsAspect {
 
-    private final BlackListService badWordsService;
+    private final BadWordsService badWordsService;
 
     @Pointcut("execution(public * com.growstory..journal.controller.*.postJournal(..)) || " +
                 "execution(public * com.growstory..journal.controller.*.patchJournal(..)) || " +
                 "execution(public * com.growstory..board.controller.*.postBoard(..)) || " +
                 "execution(public * com.growstory..board.controller.*.patchBoard(..)) || " +
                 "execution(public * com.growstory..comment.controller.*.postComment(..)) || " +
-                "execution(public * com.growstory..comment.controller.*.patchComment(..)) ")
+                "execution(public * com.growstory..comment.controller.*.patchComment(..)) || " +
+                "execution(public * com.growstory..leaf.controller.*.postLeaf(..)) || " +
+                "execution(public * com.growstory..leaf.controller.*.patchLeaf(..)) || " +
+                "execution(public * com.growstory..account.controller.*.postAccount(..)) || " +
+                "execution(public * com.growstory..account.controller.*.patchDisplayName(..)) " )
     public void beforeWritten() {
     }
 
@@ -46,12 +50,11 @@ public class BadWordsAspect {
             }
         }
 
-        ProfanityDto profanityDto = badWordsService.getProfanityWords(content);
-        Set<String> profanityWords = profanityDto.getInputProfanityWords();
+        ProfanityResponse profanityResponse = badWordsService.getProfanityWords(content);
+        Set<String> profanityWords = profanityResponse.getInputProfanityWords();
         //욕설이 포함되어 있다면
         if(!profanityWords.isEmpty()) {
-            throw new BusinessLogicException(ExceptionCode.BAD_WORD_INCLUDED, profanityDto);
+            throw new BusinessLogicException(ExceptionCode.BAD_WORD_INCLUDED, profanityResponse);
         }
     }
-
 }
